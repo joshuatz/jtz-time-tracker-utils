@@ -38,122 +38,126 @@ const commonArgs = {
 		},
 		type: cmdString,
 	}),
-	platform: option({
-		long: 'platform',
-		defaultValue: () => {
-			return 'harvest' as const;
-		},
-		type: {
-			async from(str): Promise<Platform> {
-				return str === 'toggl' ? 'toggl' : 'harvest';
-			},
-		},
-	}),
 };
 
-const rollup = command({
-	name: 'Rollup',
-	args: {
-		...commonArgs,
-		targetWeek: option({
-			long: 'target-week',
-			defaultValue: () => 'this' as const,
-			type: {
-				async from(str) {
-					return str === 'this' ? 'this' : 'last';
+const getSubcommandsForPlatform = (platform: Platform) => {
+	const rollup = command({
+		name: 'Rollup',
+		args: {
+			...commonArgs,
+			targetWeek: option({
+				long: 'target-week',
+				defaultValue: () => 'this' as const,
+				type: {
+					async from(str) {
+						return str === 'this' ? 'this' : 'last';
+					},
 				},
-			},
-		}),
-		targetUser: option({
-			long: 'target-user',
-			defaultValue: () => 'everyone' as const,
-			type: {
-				async from(str) {
-					return str === 'everyone' ? 'everyone' : 'just-me';
+			}),
+			targetUser: option({
+				long: 'target-user',
+				defaultValue: () => 'everyone' as const,
+				type: {
+					async from(str) {
+						return str === 'everyone' ? 'everyone' : 'just-me';
+					},
 				},
-			},
-		}),
-	},
-	handler: async ({ targetWeek, authFile, platform, targetUser }) => {
-		if (platform === 'toggl') {
-			// TODO
-			throw new Error('toggl not yet supported for rollup reports');
-		}
+			}),
+		},
+		handler: async ({ targetWeek, authFile, targetUser }) => {
+			if (platform === 'toggl') {
+				// TODO
+				throw new Error('toggl not yet supported for rollup reports');
+			}
 
-		const roundHours = (hours: number) => hours.toFixed(2);
+			const roundHours = (hours: number) => hours.toFixed(2);
 
-		const displayClientRollup = (rollup: RollupByClient) => {
-			// Create table of `client | project | hours`
-			const conciseSummary: Array<{ project: string; client: string; hours: number }> = [];
-			// Create table of `client | project | task | hours`
-			const granularSummary: Array<{ project: string; client: string; task: string; hours: number }> = [];
+			const displayClientRollup = (rollup: RollupByClient) => {
+				// Create table of `client | project | hours`
+				const conciseSummary: Array<{ project: string; client: string; hours: number }> = [];
+				// Create table of `client | project | task | hours`
+				const granularSummary: Array<{ project: string; client: string; task: string; hours: number }> = [];
 
-			for (const client of Object.values(rollup.clients)) {
-				for (const projectName in client.projects) {
-					const project = client.projects[projectName]!;
-					conciseSummary.push({ client: client.clientName, project: projectName, hours: project.totalHours });
-					for (const entry of Object.values(project.entriesRollup)) {
-						granularSummary.push({
+				for (const client of Object.values(rollup.clients)) {
+					for (const projectName in client.projects) {
+						const project = client.projects[projectName]!;
+						conciseSummary.push({
 							client: client.clientName,
 							project: projectName,
-							task: entry.title,
-							hours: entry.totalHours,
+							hours: project.totalHours,
 						});
+						for (const entry of Object.values(project.entriesRollup)) {
+							granularSummary.push({
+								client: client.clientName,
+								project: projectName,
+								task: entry.title,
+								hours: entry.totalHours,
+							});
+						}
 					}
 				}
+				// Round everything out and display
+				renderHeading('Weekly Total');
+				console.log(`Total Hours = ${roundHours(rollup.totalHours)}`);
+				renderHeading('Per Client');
+				console.table(conciseSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
+				renderHeading('Per Entry');
+				console.table(granularSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
+			};
+
+			const harvest = getHarvest(authFile);
+			const today = new Date();
+			const yourId = await harvest.getUserId();
+			const dayInWeek = targetWeek === 'this' ? today : subWeeks(today, 1);
+			const { startDate, endDate } = getWeekStartAndEnd(dayInWeek);
+			let userIdFilter = targetUser === 'just-me' ? yourId : undefined;
+			const rollupByUser = await harvest.getRollup(startDate, endDate, userIdFilter);
+
+			if (userIdFilter) {
+				// There should only be one userId roll-up, our own
+				renderHeading('Your Personal Roll-Up Report');
+				displayClientRollup(rollupByUser.users[userIdFilter]!);
+			} else {
+				// Create a per-user rollup table
+				renderHeading('User Summary');
+				const userSummary = Object.entries(rollupByUser.users).map(([userId, rollupByClient]) => {
+					return {
+						name: rollupByUser.userIdToNameMap[userId],
+						hours: roundHours(rollupByClient.totalHours),
+					};
+				});
+				console.table(userSummary);
+
+				// Display your own breakdown first
+				const yourRollup = rollupByUser.users[yourId];
+				if (yourRollup) {
+					renderHeading('Your Own Entries:');
+					displayClientRollup(yourRollup);
+				}
+
+				// Now, display everyone else
+				for (const [userId, userRollup] of Object.entries(rollupByUser.users)) {
+					renderHeading(`User - ${rollupByUser.userIdToNameMap[userId]}`);
+					displayClientRollup(userRollup);
+				}
 			}
-			// Round everything out and display
-			renderHeading('Weekly Total');
-			console.log(`Total Hours = ${roundHours(rollup.totalHours)}`);
-			renderHeading('Per Client');
-			console.table(conciseSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
-			renderHeading('Per Entry');
-			console.table(granularSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
-		};
+		},
+	});
 
-		const harvest = getHarvest(authFile);
-		const today = new Date();
-		const yourId = await harvest.getUserId();
-		const dayInWeek = targetWeek === 'this' ? today : subWeeks(today, 1);
-		const { startDate, endDate } = getWeekStartAndEnd(dayInWeek);
-		let userIdFilter = targetUser === 'just-me' ? yourId : undefined;
-		const rollupByUser = await harvest.getRollup(startDate, endDate, userIdFilter);
+	return {
+		rollup,
+	};
+};
 
-		if (userIdFilter) {
-			// There should only be one userId roll-up, our own
-			renderHeading('Your Personal Roll-Up Report');
-			displayClientRollup(rollupByUser.users[userIdFilter]!);
-		} else {
-			// Create a per-user rollup table
-			renderHeading('User Summary');
-			const userSummary = Object.entries(rollupByUser.users).map(([userId, rollupByClient]) => {
-				return {
-					name: rollupByUser.userIdToNameMap[userId],
-					hours: roundHours(rollupByClient.totalHours),
-				};
-			});
-			console.table(userSummary);
-
-			// Display your own breakdown first
-			const yourRollup = rollupByUser.users[yourId];
-			if (yourRollup) {
-				renderHeading('Your Own Entries:');
-				displayClientRollup(yourRollup);
-			}
-
-			// Now, display everyone else
-			for (const [userId, userRollup] of Object.entries(rollupByUser.users)) {
-				renderHeading(`User - ${rollupByUser.userIdToNameMap[userId]}`);
-				displayClientRollup(userRollup);
-			}
-		}
-	},
+const harvest = subcommands({
+	name: 'Harvest',
+	cmds: getSubcommandsForPlatform('harvest'),
 });
 
 run(
 	subcommands({
 		name: APP_NAME,
-		cmds: { rollup },
+		cmds: { harvest },
 	}),
 	process.argv.slice(2)
 );
