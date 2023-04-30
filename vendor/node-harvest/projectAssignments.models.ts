@@ -1,4 +1,4 @@
-import { PagenationParameters, PagenationResponse } from './base/pagenation';
+import { PagenationParameters, PagenationResponse } from './base/pagenation.js';
 import { Project } from './projects.models';
 import { Client } from './clients.models';
 import { TaskAssignment } from './taskAssignments.models';

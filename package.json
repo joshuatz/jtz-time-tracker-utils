@@ -2,7 +2,11 @@
 	"name": "jtz-time-tracker-utils",
 	"version": "1.0.0",
 	"description": "@TODO",
-	"main": "index.js",
+	"main": "cli.js",
+	"bin": {
+		"jttu": "cli.js"
+	},
+	"type": "module",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},

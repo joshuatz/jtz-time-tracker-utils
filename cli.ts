@@ -1,8 +1,10 @@
+#!/usr/bin/env node
+
 import { command, option, run, subcommands, string as cmdString } from 'cmd-ts';
 import { subWeeks } from 'date-fns';
 import { homedir } from 'os';
-import { APP_NAME } from './common/constants';
-import { getWeekStartAndEnd, HarvestApi, RollupByClient } from './common/harvest-api';
+import { APP_NAME } from './common/constants.js';
+import { getWeekStartAndEnd, HarvestApi, RollupByClient } from './common/harvest-api.js';
 import * as path from 'path';
 import { readFileSync } from 'fs';
 

@@ -1,4 +1,4 @@
-import { PagenationParameters, PagenationResponse } from './base/pagenation';
+import { PagenationParameters, PagenationResponse } from './base/pagenation.js';
 
 /**
  * An response from the Contacts API

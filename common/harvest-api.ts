@@ -1,13 +1,13 @@
 import fetch from 'node-fetch';
-import { APP_NAME, APP_URL } from './constants';
+import { APP_NAME, APP_URL } from './constants.js';
 import { endOfWeek, format, startOfWeek } from 'date-fns';
 import { URL, URLSearchParams } from 'node:url';
 import {
 	TimeEntriesPagenationResponse as _TimeEntriesPagenationResponse,
 	TimeEntry as _TimeEntry,
-} from '../vendor/node-harvest/timeEntries.models';
-import { User as HarvestUser } from '../vendor/node-harvest/users.models';
-import { TimerStatus, TimeTracker } from './time-tracker-base';
+} from '../vendor/node-harvest/timeEntries.models.js';
+import { User as HarvestUser } from '../vendor/node-harvest/users.models.js';
+import { TimerStatus, TimeTracker } from './time-tracker-base.js';
 
 // Monkey-patching some incorrect type-defs from `node-harvest`
 type TimeEntry = Omit<_TimeEntry, 'client' | 'project' | 'user'> & {
