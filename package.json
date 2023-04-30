@@ -1,0 +1,32 @@
+{
+	"name": "jtz-time-tracker-utils",
+	"version": "1.0.0",
+	"description": "@TODO",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/joshuatz/jtz-time-tracker-utils.git"
+	},
+	"author": {
+		"name": "Joshua Tzucker",
+		"url": "https://joshuatz.com/?utm_source=package"
+	},
+	"homepage": "https://github.com/joshuatz/jtz-time-tracker-utils",
+	"license": "MIT",
+	"devDependencies": {
+		"@tsconfig/node18-strictest-esm": "^1.0.1",
+		"@types/node": "^18.14.0",
+		"tsx": "^3.12.7",
+		"typescript": "^4.9.5"
+	},
+	"dependencies": {
+		"@fnando/streamdeck": "^0.1.0-alpha.5",
+		"cmd-ts": "^0.12.1",
+		"date-fns": "^2.29.3",
+		"node-fetch": "^3.3.0"
+	}
+}

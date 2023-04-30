@@ -1,0 +1,7 @@
+node_modules
+.env
+scratch.*
+node_modules
+dist
+# For now
+com.joshuatz.time-trackers.sdPlugin
