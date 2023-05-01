@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+import fetch, { HeadersInit } from 'node-fetch';
 import { APP_NAME, APP_URL } from './constants.js';
 import { endOfWeek, format, startOfWeek } from 'date-fns';
 import { URL, URLSearchParams } from 'node:url';
@@ -22,6 +22,10 @@ type TimeEntry = Omit<_TimeEntry, 'client' | 'project' | 'user'> & {
 		code: string;
 	};
 	user: {
+		id: number;
+		name: string;
+	};
+	task: {
 		id: number;
 		name: string;
 	};
@@ -73,6 +77,10 @@ type TimeEntriesPagenationResponse = Omit<_TimeEntriesPagenationResponse, 'time_
 	time_entries: TimeEntry[];
 };
 
+const formatTimeEntryForConsole = (timeEntry: TimeEntry) => {
+	return `${timeEntry.id} (${timeEntry.client.name}${!!timeEntry.notes ? ', ' + timeEntry.notes : ''})`;
+};
+
 export const getWeekStartAndEnd = (dayInWeek?: Date) => {
 	dayInWeek = dayInWeek || new Date();
 	return {
@@ -103,14 +111,20 @@ export class HarvestApi extends TimeTracker {
 			endpoint.search = new URLSearchParams(queryParams).toString();
 		}
 
+		const headers: HeadersInit = {
+			...fetchArgs?.headers,
+			Authorization: `Bearer ${this._harvestAccountToken}`,
+			'Harvest-Account-Id': this._harvestAccountID + '',
+			'User-Agent': `${APP_NAME} (${APP_URL})`,
+		};
+
+		if (fetchArgs && fetchArgs.method === 'POST') {
+			headers['Content-Type'] = 'application/json';
+		}
+
 		const response = await fetch(endpoint.toString(), {
 			...fetchArgs,
-			headers: {
-				...fetchArgs?.headers,
-				Authorization: `Bearer ${this._harvestAccountToken}`,
-				'Harvest-Account-Id': this._harvestAccountID + '',
-				'User-Agent': `${APP_NAME} (${APP_URL})`,
-			},
+			headers,
 		});
 		return response.json() as unknown as T;
 	}
@@ -236,7 +250,9 @@ export class HarvestApi extends TimeTracker {
 			timeEntryId = lastEntry.id;
 		}
 
-		return this.fetchWithAuth<TimeEntry>(`/time_entries/${timeEntryId}/stop`);
+		this.fetchWithAuth<TimeEntry>(`/time_entries/${timeEntryId}/stop`, undefined, {
+			method: 'PATCH',
+		});
 	}
 
 	public async resumeLastEntry() {
@@ -244,8 +260,25 @@ export class HarvestApi extends TimeTracker {
 		if (!lastEntry || lastEntry.is_running) {
 			throw new Error('No entry to resume / restart.');
 		}
+		console.log(`Restarting task ${formatTimeEntryForConsole(lastEntry)}`);
 
-		this.fetchWithAuth<TimeEntry>(`/time_entries/${lastEntry.id}/restart`);
+		// WARNING: Using the `/time_entries/{ID}/restart` API endpoint does not
+		// work as expected; it will restart a timer in the PAST, not current day
+		// Better to just resume manually, by copying forward the attributes to a
+		// new entry
+		const startResponse = await this.fetchWithAuth<TimeEntry>(`/time_entries`, undefined, {
+			method: 'POST',
+			body: JSON.stringify({
+				project_id: lastEntry.project.id,
+				task_id: lastEntry.task.id,
+				// The ISO 8601 formatted date the time entry was spent.
+				// Make sure we use LOCAL time; use hack
+				// https://stackoverflow.com/a/65758103/11447682
+				spent_date: new Date().toLocaleDateString('sv'),
+				notes: lastEntry.notes,
+			}),
+		});
+		console.log(`Task (re)started - new ID: ${startResponse.id}`);
 	}
 
 	public async syncStatus(): Promise<void> {

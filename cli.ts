@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
-import { command, option, run, subcommands, string as cmdString } from 'cmd-ts';
+import { string as cmdString, command, option, run, subcommands } from 'cmd-ts';
 import { subWeeks } from 'date-fns';
-import { homedir } from 'os';
-import { APP_NAME } from './common/constants.js';
-import { getWeekStartAndEnd, HarvestApi, RollupByClient } from './common/harvest-api.js';
-import * as path from 'path';
 import { readFileSync } from 'fs';
+import { homedir } from 'os';
+import * as path from 'path';
+import { APP_NAME } from './common/constants.js';
+import { HarvestApi, RollupByClient, getWeekStartAndEnd } from './common/harvest-api.js';
+import { TogglApi } from './common/toggl-api.js';
+import { NotImplementedError } from './common/utils.js';
 
 const repeatChar = (length: number, char: string) => {
 	return Array(length).fill(char).join('');
@@ -24,10 +26,15 @@ const renderHeading = (headingText = 'NEW SECTION') => {
 };
 
 type Platform = 'toggl' | 'harvest';
+type ClientByPlatform<P extends Platform> = P extends 'toggl' ? TogglApi : HarvestApi;
 
-const getHarvest = (authFile: string): HarvestApi => {
+const getClient = <P extends Platform>(platform: P, authFile: string): ClientByPlatform<P> => {
 	const authInfo = JSON.parse(readFileSync(authFile).toString());
-	return new HarvestApi(authInfo.HARVEST_PAT_ACCOUNT_ID, authInfo.HARVEST_PAT_TOKEN);
+	if (platform === 'harvest') {
+		return new HarvestApi(authInfo.HARVEST_PAT_ACCOUNT_ID, authInfo.HARVEST_PAT_TOKEN);
+	}
+
+	return new TogglApi() as ClientByPlatform<P>;
 };
 
 const commonArgs = {
@@ -37,16 +44,36 @@ const commonArgs = {
 			return path.join(homedir(), '.jtz-time-tracker-utils.config.json');
 		},
 		type: cmdString,
+		description: 'Path to a JSON config file that contains authentication information for your time tracker',
 	}),
 };
 
 const getSubcommandsForPlatform = (platform: Platform) => {
+	const stop = command({
+		name: 'Stop',
+		args: commonArgs,
+		handler: async ({ authFile }) => {
+			const client = getClient(platform, authFile);
+			return client.stop();
+		},
+	});
+	const resume = command({
+		name: 'Resume Last Entry',
+		args: commonArgs,
+		handler: async ({ authFile }) => {
+			const client = getClient(platform, authFile);
+			return client.resumeLastEntry();
+		},
+	});
 	const rollup = command({
 		name: 'Rollup',
 		args: {
 			...commonArgs,
 			targetWeek: option({
 				long: 'target-week',
+				description:
+					'Which week you want to generate the report for (this week or last). Options: `this` | `last`. ',
+				defaultValueIsSerializable: true,
 				defaultValue: () => 'this' as const,
 				type: {
 					async from(str) {
@@ -56,6 +83,8 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 			}),
 			targetUser: option({
 				long: 'target-user',
+				description: 'Whom should the report be scoped to? Options: `everyone` | `just-me`. ',
+				defaultValueIsSerializable: true,
 				defaultValue: () => 'everyone' as const,
 				type: {
 					async from(str) {
@@ -67,7 +96,7 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 		handler: async ({ targetWeek, authFile, targetUser }) => {
 			if (platform === 'toggl') {
 				// TODO
-				throw new Error('toggl not yet supported for rollup reports');
+				throw new NotImplementedError('toggl not yet supported for rollup reports');
 			}
 
 			const roundHours = (hours: number) => hours.toFixed(2);
@@ -105,7 +134,7 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 				console.table(granularSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
 			};
 
-			const harvest = getHarvest(authFile);
+			const harvest = getClient('harvest', authFile);
 			const today = new Date();
 			const yourId = await harvest.getUserId();
 			const dayInWeek = targetWeek === 'this' ? today : subWeeks(today, 1);
@@ -145,7 +174,9 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 	});
 
 	return {
+		resume,
 		rollup,
+		stop,
 	};
 };
 

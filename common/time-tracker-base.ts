@@ -8,5 +8,12 @@ export abstract class TimeTracker {
 	protected _status: TimerStatus = { isRunning: false };
 	public abstract syncStatus(): Promise<void>;
 	public abstract getStatus(): Promise<TimerStatus>;
+	public abstract stop(): Promise<void>;
+	/**
+	 * Resume / restart the very last time entry
+	 *
+	 * If a timer is already running, or there is no previous entry to resume,
+	 * this method should throw an error
+	 */
 	public abstract resumeLastEntry(): Promise<void>;
 }
