@@ -1,5 +1,6 @@
 {
 	"prettier.enable": true,
 	"editor.formatOnSave": true,
-	"editor.insertSpaces": false
+	"editor.insertSpaces": false,
+	"cSpell.words": ["toggl"]
 }

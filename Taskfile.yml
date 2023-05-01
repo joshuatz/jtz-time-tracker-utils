@@ -1,4 +1,48 @@
 version: '3'
 
 tasks:
-  release: echo @TODO
+  build: |
+    rm -r dist
+    mkdir dist
+    npx tsc
+    copy_paths=(
+      'package.json'
+      'package-lock.json'
+      'LICENSE'
+      'README.md'
+    )
+    for file_path in ${copy_paths[@]}; do
+      cp $file_path "dist/${file_path}"
+    done
+  install:local: cd dist && npm link
+  uninstall:local: npm uninstall --global jtz-time-tracker-utils
+  release:
+    cmds:
+      - task build
+      - |
+        cd dist
+        npm pack --dry-run
+        package_version=$(cat package.json | jq ".version")
+        package_lock_version=$(cat package-lock.json | jq ".version")
+        if [[ $package_version != $package_lock_version ]]; then
+          echo "🚨 ERROR 🚨 - package.json version does not match package-lock.json version"
+          exit 1
+        fi
+        while true; do
+          read -p "🚨 WARNING 🚨 - you are about to publish version ${package_version}. Are you sure? [Yy]es, [Nn]o / [Cc]ancel" ync
+          case $ync in
+            [Yy]* ) break;;
+            [Nn]* ) exit;;
+            [Cc]* ) exit;;
+          esac
+        done
+        npm publish
+  vendor:harvest:
+    desc: |
+      Pulls updated type-definitions from the `node-harvest` package and
+      vendors them into the package.
+    dir: vendor/node-harvest
+    cmds:
+      - npx degit https://github.com/simplyspoke/node-harvest/src/models
+      - prettier --write .
+      # TODO: Fix up imports

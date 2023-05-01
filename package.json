@@ -1,12 +1,15 @@
 {
 	"name": "jtz-time-tracker-utils",
-	"version": "1.0.0",
-	"description": "@TODO",
+	"version": "1.0.1",
+	"description": "Various time tracker utilities, WIP",
 	"main": "cli.js",
 	"bin": {
 		"jttu": "cli.js"
 	},
 	"type": "module",
+	"engines": {
+		"node": ">=14.0.0"
+	},
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
