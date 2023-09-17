@@ -97,14 +97,14 @@ export class HarvestApi extends TimeTracker {
 	constructor(
 		private _harvestAccountID: number | string,
 		private _harvestAccountToken: string,
-		private _harvestUserId?: number
+		private _harvestUserId?: number,
 	) {
 		super();
 	}
 	private async fetchWithAuth<T extends Record<string, any>>(
 		path: string,
 		queryParams?: Record<string, string>,
-		fetchArgs?: Parameters<typeof fetch>[1]
+		fetchArgs?: Parameters<typeof fetch>[1],
 	): Promise<T> {
 		const endpoint = new URL(HarvestApi.API_BASE + path);
 		if (queryParams) {
@@ -292,6 +292,8 @@ export class HarvestApi extends TimeTracker {
 			isRunning: true,
 			runningForMs: Date.now() - new Date(lastEntry.timer_started_at).getTime(),
 			entry: {
+				client: lastEntry.client.name,
+				project: lastEntry.project.name,
 				title: lastEntry.notes,
 			},
 		};

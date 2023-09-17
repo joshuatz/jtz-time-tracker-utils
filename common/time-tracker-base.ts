@@ -1,4 +1,6 @@
 export interface TimeEntryBase {
+	client: string;
+	project: string;
 	title: string;
 }
 

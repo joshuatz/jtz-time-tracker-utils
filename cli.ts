@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { string as cmdString, command, option, run, subcommands } from 'cmd-ts';
-import { subWeeks } from 'date-fns';
+import { formatDistance, subWeeks } from 'date-fns';
 import { readFileSync } from 'fs';
 import { homedir } from 'os';
 import * as path from 'path';
@@ -9,6 +9,9 @@ import { APP_NAME } from './common/constants.js';
 import { HarvestApi, RollupByClient, getWeekStartAndEnd } from './common/harvest-api.js';
 import { TogglApi } from './common/toggl-api.js';
 import { NotImplementedError } from './common/utils.js';
+import type PackageInfo from './package.json';
+
+const packageInfo: typeof PackageInfo = JSON.parse(readFileSync('package.json').toString());
 
 const repeatChar = (length: number, char: string) => {
 	return Array(length).fill(char).join('');
@@ -20,8 +23,8 @@ const renderHeading = (headingText = 'NEW SECTION') => {
 	const headingPadding = repeatChar(Math.ceil((termWidth - headingText.length) / 2), ' ');
 	console.log(
 		[repeatChar(termWidth, '='), headingPadding + headingText + headingPadding, repeatChar(termWidth, '=')].join(
-			'\n'
-		)
+			'\n',
+		),
 	);
 };
 
@@ -63,6 +66,40 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 		handler: async ({ authFile }) => {
 			const client = getClient(platform, authFile);
 			return client.resumeLastEntry();
+		},
+	});
+	const status = command({
+		name: 'Status',
+		args: {
+			...commonArgs,
+			format: option({
+				long: 'format',
+				description: 'How to format the output',
+				defaultValueIsSerializable: true,
+				defaultValue: () => 'plaintext' as const,
+				type: {
+					async from(str) {
+						return str === 'plaintext' ? 'plaintext' : 'json';
+					},
+				},
+			}),
+		},
+		handler: async ({ authFile, format }) => {
+			const client = getClient(platform, authFile);
+			const status = await client.getStatus();
+			if (format === 'json') {
+				console.log(status);
+				return;
+			}
+
+			let formattedStr = `Timer Active: ${status.isRunning ? '✅' : '❌'}`;
+			if (status.isRunning) {
+				// Client || Project
+				formattedStr += `\n${status.entry.client} || ${status.entry.project}`;
+				formattedStr += `\n${status.entry.title || '(No Title)'}`;
+				formattedStr += `\n${formatDistance(0, status.runningForMs, { includeSeconds: true })}`;
+			}
+			console.log(formattedStr);
 		},
 	});
 	const rollup = command({
@@ -177,6 +214,7 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 		resume,
 		rollup,
 		stop,
+		status,
 	};
 };
 
@@ -188,7 +226,8 @@ const harvest = subcommands({
 run(
 	subcommands({
 		name: APP_NAME,
+		version: packageInfo.version,
 		cmds: { harvest },
 	}),
-	process.argv.slice(2)
+	process.argv.slice(2),
 );

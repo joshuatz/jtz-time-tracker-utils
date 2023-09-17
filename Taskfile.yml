@@ -1,6 +1,17 @@
 version: '3'
 
 tasks:
+  lint:
+    sources:
+      - common/**/*
+      - vendor/**/*
+      - cli.ts
+      - tsconfig.json
+      - package-lock.json
+      - .prettier*
+    cmds:
+      - npx tsc --noEmit
+      - npx prettier --check .
   build: |
     rm -r dist
     mkdir dist
@@ -46,3 +57,4 @@ tasks:
       - npx degit https://github.com/simplyspoke/node-harvest/src/models
       - prettier --write .
       # TODO: Fix up imports
+  local: npx ts-node --esm --transpile-only ./cli.ts {{.CLI_ARGS}}
