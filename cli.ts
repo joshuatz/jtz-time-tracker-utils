@@ -9,9 +9,7 @@ import { APP_NAME } from './common/constants.js';
 import { HarvestApi, RollupByClient, getWeekStartAndEnd } from './common/harvest-api.js';
 import { TogglApi } from './common/toggl-api.js';
 import { NotImplementedError } from './common/utils.js';
-import type PackageInfo from './package.json';
-
-const packageInfo: typeof PackageInfo = JSON.parse(readFileSync('package.json').toString());
+import { VERSION_STRING } from './common/version.js';
 
 const repeatChar = (length: number, char: string) => {
 	return Array(length).fill(char).join('');
@@ -226,7 +224,7 @@ const harvest = subcommands({
 run(
 	subcommands({
 		name: APP_NAME,
-		version: packageInfo.version,
+		version: VERSION_STRING,
 		cmds: { harvest },
 	}),
 	process.argv.slice(2),

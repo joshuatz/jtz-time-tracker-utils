@@ -13,6 +13,9 @@ tasks:
       - npx tsc --noEmit
       - npx prettier --check .
   build: |
+    # Patch version
+    VERSION_STRING=$(node -p "require('./package.json').version")
+    echo "export const VERSION_STRING = \"$VERSION_STRING\";" > common/version.ts
     rm -r dist
     mkdir dist
     npx tsc
