@@ -46,6 +46,7 @@ Platform | Command | Description
 `harvest` ✅ <br> `toggl` ❌ | `rollup` | Generates a "roll-up" report, by user, client, project, and task.
 `harvest` ✅ <br> `toggl` ❌ | `resume` | Resume the previously running time entry, with the start time set to right now.
 `harvest` ✅ <br> `toggl` ❌ | `stop` | Stop the currently running time entry.
+`harvest` ✅ <br> `toggl` ❌ | `status` | Display timer status / info.
 
 > For any given command, you can use `--help` to see information about the available arguments.
 
