@@ -60,6 +60,7 @@ Harvest authentication is done with a Personal Access Token (PAT). Head over to 
 
 Date | Release | Notes
 --- | --- | ---
+1/2/2024 | `v1.2.0` | Start exporting types, open up interfaces, build script fixups.
 9/17/2023 | `v1.1.1` | Add `status` command for Harvest
 4/30/2023 | `v1.0.1` | Initial release 🚀! Just Harvest supported at this time.
 
