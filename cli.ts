@@ -2,13 +2,9 @@
 
 import { string as cmdString, command, option, run, subcommands } from 'cmd-ts';
 import { formatDistance, subWeeks } from 'date-fns';
-import { readFileSync } from 'fs';
-import { homedir } from 'os';
-import * as path from 'path';
-import { APP_NAME } from './common/constants.js';
-import { HarvestApi, RollupByClient, getWeekStartAndEnd } from './common/harvest-api.js';
-import { TogglApi } from './common/toggl-api.js';
-import { NotImplementedError } from './common/utils.js';
+import { APP_NAME, DEFAULT_CONFIG_PATH } from './common/constants.js';
+import { RollupByClient, getWeekStartAndEnd } from './common/harvest-api.js';
+import { NotImplementedError, Platform, getClient } from './common/utils.js';
 import { VERSION_STRING } from './common/version.js';
 
 const repeatChar = (length: number, char: string) => {
@@ -26,24 +22,10 @@ const renderHeading = (headingText = 'NEW SECTION') => {
 	);
 };
 
-type Platform = 'toggl' | 'harvest';
-type ClientByPlatform<P extends Platform> = P extends 'toggl' ? TogglApi : HarvestApi;
-
-const getClient = <P extends Platform>(platform: P, authFile: string): ClientByPlatform<P> => {
-	const authInfo = JSON.parse(readFileSync(authFile).toString());
-	if (platform === 'harvest') {
-		return new HarvestApi(authInfo.HARVEST_PAT_ACCOUNT_ID, authInfo.HARVEST_PAT_TOKEN);
-	}
-
-	return new TogglApi() as ClientByPlatform<P>;
-};
-
 const commonArgs = {
 	authFile: option({
 		long: 'auth-file',
-		defaultValue: () => {
-			return path.join(homedir(), '.jtz-time-tracker-utils.config.json');
-		},
+		defaultValue: () => DEFAULT_CONFIG_PATH,
 		type: cmdString,
 		description: 'Path to a JSON config file that contains authentication information for your time tracker',
 	}),

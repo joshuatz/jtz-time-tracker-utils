@@ -101,7 +101,7 @@ export class HarvestApi extends TimeTracker {
 	) {
 		super();
 	}
-	private async fetchWithAuth<T extends Record<string, any>>(
+	public async fetchWithAuth<T extends Record<string, any>>(
 		path: string,
 		queryParams?: Record<string, string>,
 		fetchArgs?: Parameters<typeof fetch>[1],

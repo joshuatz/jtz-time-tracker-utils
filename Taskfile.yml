@@ -3,32 +3,47 @@ version: '3'
 tasks:
   lint:
     sources:
+      - cli.ts
       - common/**/*
       - vendor/**/*
-      - cli.ts
       - tsconfig.json
       - package-lock.json
       - .prettier*
     cmds:
       - npx tsc --noEmit
       - npx prettier --check .
-  build: |
-    # Patch version
-    VERSION_STRING=$(node -p "require('./package.json').version")
-    echo "export const VERSION_STRING = \"$VERSION_STRING\";" > common/version.ts
-    rm -r dist
-    mkdir dist
-    npx tsc
-    copy_paths=(
-      'package.json'
-      'package-lock.json'
-      'LICENSE'
-      'README.md'
-    )
-    for file_path in ${copy_paths[@]}; do
-      cp $file_path "dist/${file_path}"
-    done
-  install:local: cd dist && npm link
+  build:
+    sources:
+      - cli.ts
+      - common/**/*
+      - vendor/**/*
+      - tsconfig.json
+      - package-lock.json
+    cmd: |
+      # Patch version
+      VERSION_STRING=$(node -p "require('./package.json').version")
+      echo "export const VERSION_STRING = '$VERSION_STRING';" > common/version.ts
+      rm -rf dist
+      mkdir dist
+      npx tsc
+      copy_paths=(
+        'package.json'
+        'package-lock.json'
+        'LICENSE'
+        'README.md'
+      )
+      for file_path in ${copy_paths[@]}; do
+        cp $file_path "dist/${file_path}"
+      done
+  install:local:
+    desc: |
+      Uses `npm link` to globally share this local dev version of the package across
+      your system.
+
+      In another folder / project, you can use `npm link jtz-time-tracker-utils` to then
+      pull in this linked version.
+    deps: [build]
+    cmd: cd dist && npm link
   uninstall:local: npm uninstall --global jtz-time-tracker-utils
   release:
     cmds:
