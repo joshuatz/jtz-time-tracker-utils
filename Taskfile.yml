@@ -78,4 +78,4 @@ tasks:
       - npx degit https://github.com/simplyspoke/node-harvest/src/models
       - prettier --write .
       # TODO: Fix up imports
-  local: npx ts-node --esm --transpile-only ./cli.ts {{.CLI_ARGS}}
+  local: npx --package tsx tsx ./cli.ts {{.CLI_ARGS}}
