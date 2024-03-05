@@ -4,7 +4,7 @@ import { string as cmdString, command, option, run, subcommands } from 'cmd-ts';
 import { formatDistance, subWeeks } from 'date-fns';
 import { APP_NAME, DEFAULT_CONFIG_PATH } from './common/constants.js';
 import { RollupByClient, getWeekStartAndEnd } from './common/harvest-api.js';
-import { NotImplementedError, Platform, getClient } from './common/utils.js';
+import { NotImplementedError, Platform, getClient, includes } from './common/utils.js';
 import { VERSION_STRING } from './common/version.js';
 import esMain from 'es-main';
 
@@ -195,12 +195,64 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 			}
 		},
 	});
+	const taskAssignmentRollup = command({
+		name: 'Get Task Assignment Rollup',
+		args: {
+			...commonArgs,
+			format: option({
+				long: 'format',
+				description: 'How to format the output',
+				defaultValueIsSerializable: true,
+				defaultValue: () => 'plaintext' as const,
+				type: {
+					async from(str) {
+						const validOptions = ['plaintext', 'json', 'tsv'] as const;
+						if (!includes(validOptions, str)) {
+							throw new Error(`Invalid format. Must be one of: ${validOptions.join(', ')}`);
+						}
+						return str;
+					},
+				},
+			}),
+		},
+		handler: async ({ authFile, format }) => {
+			if (platform === 'toggl') {
+				throw new NotImplementedError('toggl not supported for task assignment rollup');
+			}
+
+			const harvest = getClient('harvest', authFile);
+			const rollup = await harvest.getTaskAssignmentRollup();
+
+			if (format === 'json') {
+				console.log(JSON.stringify(rollup));
+				return;
+			}
+			const mdArr = [['name', 'project_id', 'task_id', 'is_active']] as string[][];
+			for (const taskAssignment of rollup.all) {
+				mdArr.push(
+					[
+						taskAssignment.project.name,
+						taskAssignment.project.id,
+						taskAssignment.task_id,
+						taskAssignment.is_active,
+					].map((e) => e + ''),
+				);
+			}
+
+			if (format === 'plaintext') {
+				console.table(mdArr);
+				return;
+			}
+			console.log(mdArr.map((row) => row.join('\t')).join('\n'));
+		},
+	});
 
 	return {
 		resume,
 		rollup,
 		stop,
 		status,
+		taskAssignmentRollup,
 	};
 };
 

@@ -1,13 +1,15 @@
-import fetch, { HeadersInit } from 'node-fetch';
-import { APP_NAME, APP_URL } from './constants.js';
 import { endOfWeek, format, startOfWeek } from 'date-fns';
+import fetch, { HeadersInit } from 'node-fetch';
 import { URL, URLSearchParams } from 'node:url';
+import { PagenationResponse as HarvestPaginatedResponse } from '../vendor/node-harvest/base/pagenation.js';
+import { TaskAssignment as _TaskAssignment } from '../vendor/node-harvest/taskAssignments.models.js';
 import {
 	TimeEntriesPagenationResponse as _TimeEntriesPagenationResponse,
 	TimeEntry as _TimeEntry,
 } from '../vendor/node-harvest/timeEntries.models.js';
 import { User as HarvestUser } from '../vendor/node-harvest/users.models.js';
-import { TimerStatus, TimeTracker } from './time-tracker-base.js';
+import { APP_NAME, APP_URL } from './constants.js';
+import { TimeTracker, TimerStatus } from './time-tracker-base.js';
 
 // Monkey-patching some incorrect type-defs from `node-harvest`
 type TimeEntry = Omit<_TimeEntry, 'client' | 'project' | 'user'> & {
@@ -30,6 +32,7 @@ type TimeEntry = Omit<_TimeEntry, 'client' | 'project' | 'user'> & {
 		name: string;
 	};
 };
+type TaskAssignment = _TaskAssignment & Pick<TimeEntry, 'project' | 'task'>;
 
 /**
  * A "roll-up" is a type of summary / aggregate report that "rolls up" data that
@@ -71,6 +74,17 @@ export interface RollupByUser {
 	};
 	// Aggregate, across all users
 	allUsers: RollupByClient;
+}
+
+/**
+ * Note: For convenience, I'm duplicating `task.id` to `task_id`, to flatten
+ * things out a little
+ */
+export interface TaskAssignmentRollup {
+	all: Array<TaskAssignment & { task_id: number }>;
+	byProject: {
+		[projectId: number | string]: Array<TaskAssignment & { task_id: number }>;
+	};
 }
 
 type TimeEntriesPagenationResponse = Omit<_TimeEntriesPagenationResponse, 'time_entries'> & {
@@ -256,6 +270,32 @@ export class HarvestApi extends TimeTracker {
 		return this.getRollup({ startDate, endDate });
 	}
 
+	/**
+	 * This generates a rollup of project<-many->task_assignment
+	 *
+	 * This can be useful for crafting inputs to other functions. E.g.,
+	 * creating a dropdown you can use to create new entries / start the timer
+	 *
+	 * @TODO This does not include client info as part of this rollup, but would
+	 * be useful to include (would have to map multiple APIs though)
+	 */
+	public async getTaskAssignmentRollup(): Promise<TaskAssignmentRollup> {
+		const rollup: TaskAssignmentRollup = {
+			all: [],
+			byProject: {},
+		};
+		const response = await this.fetchWithAuth<HarvestPaginatedResponse & { task_assignments: TaskAssignment[] }>(
+			'/task_assignments',
+		);
+		for (const _assignment of response.task_assignments) {
+			const assignment = { ..._assignment, task_id: _assignment.task.id };
+			rollup.all.push(assignment);
+			rollup.byProject[assignment.project.id] = rollup.byProject[assignment.project.id] || [];
+			rollup.byProject[assignment.project.id]!.push(assignment);
+		}
+		return rollup;
+	}
+
 	public async getLastTimeEntry() {
 		const userId = await this.getUserId();
 		const timeEntries = await this.fetchWithAuth<TimeEntriesPagenationResponse>('/time_entries', {
@@ -263,6 +303,33 @@ export class HarvestApi extends TimeTracker {
 			per_page: '10',
 		});
 		return timeEntries.time_entries[0];
+	}
+
+	/**
+	 * Start the timer
+	 *
+	 * Note that the inputs are a little funny, since it requires a valid task_id
+	 * AND project_id, even though tasks are already explicitly linked to projects
+	 */
+	public async start(entry: {
+		/** Default = You */
+		user_id?: number;
+		project_id: number;
+		task_id: number;
+		/** Start date of entry. Default = now */
+		spent_date?: Date;
+		notes?: string;
+	}): Promise<TimeEntry> {
+		const userId = entry.user_id || (await this.getUserId());
+		const startDateStr = HarvestApi.formatDate(entry.spent_date || new Date());
+		return this.fetchWithAuth<TimeEntry>('/time_entries', undefined, {
+			method: 'POST',
+			body: JSON.stringify({
+				...entry,
+				user_id: userId,
+				spent_date: startDateStr,
+			}),
+		});
 	}
 
 	public async stop(timeEntryId?: number) {

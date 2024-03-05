@@ -15,3 +15,11 @@ export const getClient = <P extends Platform>(platform: P, authFile: string): Cl
 
 	return new TogglApi() as ClientByPlatform<P>;
 };
+
+/**
+ * Type-safe array.includes for strict readonly arrays
+ * @see https://fettblog.eu/typescript-array-includes/
+ */
+export const includes = <T extends U, U>(collection: ReadonlyArray<T>, searchElement: U): searchElement is T => {
+	return collection.includes(searchElement as T);
+};
