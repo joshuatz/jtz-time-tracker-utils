@@ -6,12 +6,13 @@ import { APP_NAME, DEFAULT_CONFIG_PATH } from './common/constants.js';
 import { RollupByClient, getWeekStartAndEnd } from './common/harvest-api.js';
 import { NotImplementedError, Platform, getClient } from './common/utils.js';
 import { VERSION_STRING } from './common/version.js';
+import esMain from 'es-main';
 
-const repeatChar = (length: number, char: string) => {
+export const repeatChar = (length: number, char: string) => {
 	return Array(length).fill(char).join('');
 };
 
-const renderHeading = (headingText = 'NEW SECTION') => {
+export const renderHeading = (headingText = 'NEW SECTION') => {
 	// @TODO Use a nice TUI lib for this
 	const termWidth = Math.min(process.stdout.columns, 120);
 	const headingPadding = repeatChar(Math.ceil((termWidth - headingText.length) / 2), ' ');
@@ -20,6 +21,46 @@ const renderHeading = (headingText = 'NEW SECTION') => {
 			'\n',
 		),
 	);
+};
+
+const roundHours = (hours: number) => hours.toFixed(2);
+
+export const clientRollupToTables = (rollup: RollupByClient) => {
+	// Create table of `client | project | hours`
+	const conciseSummary: Array<{ project: string; client: string; hours: number }> = [];
+	// Create table of `client | project | task | hours`
+	const granularSummary: Array<{ project: string; client: string; task: string; hours: number }> = [];
+
+	for (const client of Object.values(rollup.clients)) {
+		for (const projectName in client.projects) {
+			const project = client.projects[projectName]!;
+			conciseSummary.push({
+				client: client.clientName,
+				project: projectName,
+				hours: project.totalHours,
+			});
+			for (const entry of Object.values(project.entriesRollup)) {
+				granularSummary.push({
+					client: client.clientName,
+					project: projectName,
+					task: entry.title,
+					hours: entry.totalHours,
+				});
+			}
+		}
+	}
+	return { conciseSummary, granularSummary };
+};
+
+export const displayClientRollup = (rollup: RollupByClient) => {
+	const { conciseSummary, granularSummary } = clientRollupToTables(rollup);
+	// Round everything out and display
+	renderHeading('Weekly Total');
+	console.log(`Total Hours = ${roundHours(rollup.totalHours)}`);
+	renderHeading('Per Client');
+	console.table(conciseSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
+	renderHeading('Per Entry');
+	console.table(granularSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
 };
 
 const commonArgs = {
@@ -116,48 +157,13 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 				throw new NotImplementedError('toggl not yet supported for rollup reports');
 			}
 
-			const roundHours = (hours: number) => hours.toFixed(2);
-
-			const displayClientRollup = (rollup: RollupByClient) => {
-				// Create table of `client | project | hours`
-				const conciseSummary: Array<{ project: string; client: string; hours: number }> = [];
-				// Create table of `client | project | task | hours`
-				const granularSummary: Array<{ project: string; client: string; task: string; hours: number }> = [];
-
-				for (const client of Object.values(rollup.clients)) {
-					for (const projectName in client.projects) {
-						const project = client.projects[projectName]!;
-						conciseSummary.push({
-							client: client.clientName,
-							project: projectName,
-							hours: project.totalHours,
-						});
-						for (const entry of Object.values(project.entriesRollup)) {
-							granularSummary.push({
-								client: client.clientName,
-								project: projectName,
-								task: entry.title,
-								hours: entry.totalHours,
-							});
-						}
-					}
-				}
-				// Round everything out and display
-				renderHeading('Weekly Total');
-				console.log(`Total Hours = ${roundHours(rollup.totalHours)}`);
-				renderHeading('Per Client');
-				console.table(conciseSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
-				renderHeading('Per Entry');
-				console.table(granularSummary.map((e) => ({ ...e, hours: roundHours(e.hours) })));
-			};
-
 			const harvest = getClient('harvest', authFile);
 			const today = new Date();
 			const yourId = await harvest.getUserId();
 			const dayInWeek = targetWeek === 'this' ? today : subWeeks(today, 1);
 			const { startDate, endDate } = getWeekStartAndEnd(dayInWeek);
 			let userIdFilter = targetUser === 'just-me' ? yourId : undefined;
-			const rollupByUser = await harvest.getRollup(startDate, endDate, userIdFilter);
+			const rollupByUser = await harvest.getRollup({ startDate, endDate, userIdFilter });
 
 			if (userIdFilter) {
 				// There should only be one userId roll-up, our own
@@ -203,11 +209,13 @@ const harvest = subcommands({
 	cmds: getSubcommandsForPlatform('harvest'),
 });
 
-run(
-	subcommands({
-		name: APP_NAME,
-		version: VERSION_STRING,
-		cmds: { harvest },
-	}),
-	process.argv.slice(2),
-);
+if (esMain(import.meta)) {
+	run(
+		subcommands({
+			name: APP_NAME,
+			version: VERSION_STRING,
+			cmds: { harvest },
+		}),
+		process.argv.slice(2),
+	);
+}

@@ -1,5 +1,8 @@
 version: '3'
 
+# Reminders / notes
+# - You can use `npm version {major|minor|patch} --no-git-tag-version` to bump version
+
 tasks:
   lint:
     sources:

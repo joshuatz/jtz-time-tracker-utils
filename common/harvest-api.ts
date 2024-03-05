@@ -137,7 +137,22 @@ export class HarvestApi extends TimeTracker {
 		this._harvestUserId = userInfo.id;
 		return userInfo.id;
 	}
-	public async getRollup(startDate: Date, endDate: Date, userIdFilter?: number | number[]) {
+	public async getRollup({
+		startDate,
+		endDate,
+		userIdFilter,
+		userNameFilter,
+		filter,
+	}: {
+		startDate: Date;
+		endDate: Date;
+		userIdFilter?: undefined | number | number[];
+		userNameFilter?: undefined | string | string[];
+		/**
+		 * Optional filter to include / exclude entries. Return false to exclude an entry.
+		 */
+		filter?: (entry: TimeEntry) => boolean | Promise<boolean>;
+	}) {
 		const timeEntriesQuery: Record<string, string> = {
 			from: HarvestApi.formatDate(startDate),
 			to: HarvestApi.formatDate(endDate),
@@ -156,6 +171,15 @@ export class HarvestApi extends TimeTracker {
 		};
 		// Do rollup in reverse, so inner arrays list entries from start of week to end
 		for (const entry of timeEntries.time_entries.reverse()) {
+			if (filter && !(await filter(entry))) {
+				continue;
+			}
+			if (userNameFilter) {
+				const filterNames = Array.isArray(userNameFilter) ? userNameFilter : [userNameFilter];
+				if (!filterNames.includes(entry.user.name)) {
+					continue;
+				}
+			}
 			const clientName = entry.client.name;
 			const clientId = entry.client.id;
 			const projectName = entry.project.name;
@@ -229,7 +253,7 @@ export class HarvestApi extends TimeTracker {
 
 	public async getWeekRollup() {
 		const { startDate, endDate } = getWeekStartAndEnd();
-		return this.getRollup(startDate, endDate);
+		return this.getRollup({ startDate, endDate });
 	}
 
 	public async getLastTimeEntry() {
