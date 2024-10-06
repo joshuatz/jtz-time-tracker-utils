@@ -78,4 +78,18 @@ tasks:
       - npx degit https://github.com/simplyspoke/node-harvest/src/models
       - prettier --write .
       # TODO: Fix up imports
+  vendor:toggl:
+    desc: |
+      Generates local type-definitions by converting official JSON schema from
+      toggl itself.
+    dir: vendor/toggl-official
+    cmds:
+      # Use swagger-typescript-api to convert official Swagger API schema to TS
+      - |
+        npx swagger-typescript-api --path https://engineering.toggl.com/assets/files/api-8662e9f30f4a00c93c1e5be6a160b144.json --output ./ --name api.ts --no-client --union-enums --route-types
+      # Afterwards, there is a small amount of manual fixups needed
+      - echo "Please inspect api.ts for issues"
   local: npx --package tsx tsx ./cli.ts {{.CLI_ARGS}}
+  # Example commands
+  harvest:status: task local -- harvest status
+  toggl:status: task local -- toggl status
