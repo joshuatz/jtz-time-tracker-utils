@@ -116,7 +116,9 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 			let formattedStr = `Timer Active: ${status.isRunning ? '✅' : '❌'}`;
 			if (status.isRunning) {
 				// Client || Project
-				formattedStr += `\n${status.entry.client} || ${status.entry.project}`;
+				formattedStr += `\n${status.entry.client || '(No Client Assigned)'} || ${
+					status.entry.project || '(No Project Assigned)'
+				}`;
 				formattedStr += `\n${status.entry.title || '(No Title)'}`;
 				formattedStr += `\n${formatDistance(0, status.runningForMs, { includeSeconds: true })}`;
 			}
@@ -261,12 +263,17 @@ const harvest = subcommands({
 	cmds: getSubcommandsForPlatform('harvest'),
 });
 
+const toggl = subcommands({
+	name: 'Toggl',
+	cmds: getSubcommandsForPlatform('toggl'),
+});
+
 if (esMain(import.meta)) {
 	run(
 		subcommands({
 			name: APP_NAME,
 			version: VERSION_STRING,
-			cmds: { harvest },
+			cmds: { harvest, toggl },
 		}),
 		process.argv.slice(2),
 	);

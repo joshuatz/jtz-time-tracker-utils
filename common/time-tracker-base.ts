@@ -1,13 +1,14 @@
 export interface TimeEntryBase {
-	client: string;
-	project: string;
-	title: string;
+	client?: string | undefined | null;
+	project?: string | undefined | null;
+	title?: string | undefined | null;
 }
 
 export type TimerStatus = { isRunning: false } | { isRunning: true; entry: TimeEntryBase; runningForMs: number };
 
-export abstract class TimeTracker {
+export abstract class TimeTracker<InternalTimeEntryType> {
 	protected _status: TimerStatus = { isRunning: false };
+	public abstract normalizeEntry(entry: InternalTimeEntryType): TimeEntryBase;
 	public abstract syncStatus(): Promise<void>;
 	public abstract getStatus(): Promise<TimerStatus>;
 	public abstract stop(): Promise<void>;

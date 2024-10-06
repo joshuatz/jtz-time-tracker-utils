@@ -10,10 +10,10 @@ export type ClientByPlatform<P extends Platform> = P extends 'toggl' ? TogglApi 
 export const getClient = <P extends Platform>(platform: P, authFile: string): ClientByPlatform<P> => {
 	const authInfo = JSON.parse(readFileSync(authFile).toString());
 	if (platform === 'harvest') {
-		return new HarvestApi(authInfo.HARVEST_PAT_ACCOUNT_ID, authInfo.HARVEST_PAT_TOKEN);
+		return new HarvestApi(authInfo.HARVEST_PAT_ACCOUNT_ID, authInfo.HARVEST_PAT_TOKEN) as ClientByPlatform<P>;
 	}
 
-	return new TogglApi() as ClientByPlatform<P>;
+	return new TogglApi(authInfo.TOGGL_API_TOKEN) as ClientByPlatform<P>;
 };
 
 /**

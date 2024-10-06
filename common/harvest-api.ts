@@ -9,10 +9,10 @@ import {
 } from '../vendor/node-harvest/timeEntries.models.js';
 import { User as HarvestUser } from '../vendor/node-harvest/users.models.js';
 import { APP_NAME, APP_URL } from './constants.js';
-import { TimeTracker, TimerStatus } from './time-tracker-base.js';
+import { TimeEntryBase, TimeTracker, TimerStatus } from './time-tracker-base.js';
 
 // Monkey-patching some incorrect type-defs from `node-harvest`
-type TimeEntry = Omit<_TimeEntry, 'client' | 'project' | 'user'> & {
+type HarvestTimeEntry = Omit<_TimeEntry, 'client' | 'project' | 'user'> & {
 	client: {
 		id: number;
 		name: string;
@@ -32,7 +32,7 @@ type TimeEntry = Omit<_TimeEntry, 'client' | 'project' | 'user'> & {
 		name: string;
 	};
 };
-type TaskAssignment = _TaskAssignment & Pick<TimeEntry, 'project' | 'task'>;
+type TaskAssignment = _TaskAssignment & Pick<HarvestTimeEntry, 'project' | 'task'>;
 
 /**
  * A "roll-up" is a type of summary / aggregate report that "rolls up" data that
@@ -51,12 +51,12 @@ export interface RollupByClient {
 			projects: {
 				[project: string]: {
 					totalHours: number;
-					entries: TimeEntry[];
+					entries: HarvestTimeEntry[];
 					entriesRollup: {
 						[entryTitle: string]: {
 							title: string;
 							totalHours: number;
-							entries: TimeEntry[];
+							entries: HarvestTimeEntry[];
 						};
 					};
 				};
@@ -88,10 +88,10 @@ export interface TaskAssignmentRollup {
 }
 
 type TimeEntriesPagenationResponse = Omit<_TimeEntriesPagenationResponse, 'time_entries'> & {
-	time_entries: TimeEntry[];
+	time_entries: HarvestTimeEntry[];
 };
 
-const formatTimeEntryForConsole = (timeEntry: TimeEntry) => {
+const formatTimeEntryForConsole = (timeEntry: HarvestTimeEntry) => {
 	return `${timeEntry.id} (${timeEntry.client.name}${!!timeEntry.notes ? ', ' + timeEntry.notes : ''})`;
 };
 
@@ -103,7 +103,7 @@ export const getWeekStartAndEnd = (dayInWeek?: Date) => {
 	};
 };
 
-export class HarvestApi extends TimeTracker {
+export class HarvestApi extends TimeTracker<HarvestTimeEntry> {
 	public static API_BASE = 'https://api.harvestapp.com/v2';
 	public static formatDate(date: Date) {
 		return format(date, 'yyyy-MM-dd');
@@ -115,8 +115,17 @@ export class HarvestApi extends TimeTracker {
 	) {
 		super();
 	}
+
+	public normalizeEntry(entry: HarvestTimeEntry): TimeEntryBase {
+		return {
+			client: entry.client.name,
+			project: entry.project.name,
+			title: entry.notes,
+		};
+	}
+
 	public async fetchWithAuth<T extends Record<string, any>>(
-		path: string,
+		path: `/${string}`,
 		queryParams?: Record<string, string>,
 		fetchArgs?: Parameters<typeof fetch>[1],
 	): Promise<T> {
@@ -165,7 +174,7 @@ export class HarvestApi extends TimeTracker {
 		/**
 		 * Optional filter to include / exclude entries. Return false to exclude an entry.
 		 */
-		filter?: (entry: TimeEntry) => boolean | Promise<boolean>;
+		filter?: (entry: HarvestTimeEntry) => boolean | Promise<boolean>;
 	}) {
 		const timeEntriesQuery: Record<string, string> = {
 			from: HarvestApi.formatDate(startDate),
@@ -319,10 +328,10 @@ export class HarvestApi extends TimeTracker {
 		/** Start date of entry. Default = now */
 		spent_date?: Date;
 		notes?: string;
-	}): Promise<TimeEntry> {
+	}): Promise<HarvestTimeEntry> {
 		const userId = entry.user_id || (await this.getUserId());
 		const startDateStr = HarvestApi.formatDate(entry.spent_date || new Date());
-		return this.fetchWithAuth<TimeEntry>('/time_entries', undefined, {
+		return this.fetchWithAuth<HarvestTimeEntry>('/time_entries', undefined, {
 			method: 'POST',
 			body: JSON.stringify({
 				...entry,
@@ -341,9 +350,12 @@ export class HarvestApi extends TimeTracker {
 			timeEntryId = lastEntry.id;
 		}
 
-		this.fetchWithAuth<TimeEntry>(`/time_entries/${timeEntryId}/stop`, undefined, {
+		await this.fetchWithAuth<HarvestTimeEntry>(`/time_entries/${timeEntryId}/stop`, undefined, {
 			method: 'PATCH',
 		});
+		this._status = {
+			isRunning: false,
+		};
 	}
 
 	public async resumeLastEntry() {
@@ -357,7 +369,7 @@ export class HarvestApi extends TimeTracker {
 		// work as expected; it will restart a timer in the PAST, not current day
 		// Better to just resume manually, by copying forward the attributes to a
 		// new entry
-		const startResponse = await this.fetchWithAuth<TimeEntry>(`/time_entries`, undefined, {
+		const startResponse = await this.fetchWithAuth<HarvestTimeEntry>(`/time_entries`, undefined, {
 			method: 'POST',
 			body: JSON.stringify({
 				project_id: lastEntry.project.id,
@@ -382,11 +394,7 @@ export class HarvestApi extends TimeTracker {
 		this._status = {
 			isRunning: true,
 			runningForMs: Date.now() - new Date(lastEntry.timer_started_at).getTime(),
-			entry: {
-				client: lastEntry.client.name,
-				project: lastEntry.project.name,
-				title: lastEntry.notes,
-			},
+			entry: this.normalizeEntry(lastEntry),
 		};
 	}
 
