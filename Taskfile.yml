@@ -1,9 +1,54 @@
+### @file ###
+#
+# This is a "Taskfile", for use with the `task` (aka `go-task`) runner.
+# It supports cross-platform scripting, task dependency / fingerprinting, and more.
+# See: https://github.com/go-task/task
+#
+# Many tasks are automatically run together, via dependency arrays, so you don't
+# have to remember to manually do things like install dependencies, re-build, etc.
+#
+# Tips:
+# - Use `task TASK_NAME` to run a specific task
+# - Use `task --list-all` in the project root to list all tasks.
+# - For a given task:
+#     - Use `--summary` to show the description / help.
+#     - Use `--force` to force the task to re-run, even if computed deps haven't changed.
+#############
+
 version: '3'
+
+silent: true
 
 # Reminders / notes
 # - You can use `npm version {major|minor|patch} --no-git-tag-version` to bump version
 
 tasks:
+  #============================================================#
+  #================= Setup / Dev Env ==========================#
+  #============================================================#
+  vendor:harvest:
+    desc: |
+      Pulls updated type-definitions from the `node-harvest` package and
+      vendors them into the package.
+    dir: vendor/node-harvest
+    cmds:
+      - npx degit https://github.com/simplyspoke/node-harvest/src/models
+      - prettier --write .
+      # TODO: Fix up imports
+  vendor:toggl:
+    desc: |
+      Generates local type-definitions by converting official JSON schema from
+      toggl itself.
+    dir: vendor/toggl-official
+    cmds:
+      # Use swagger-typescript-api to convert official Swagger API schema to TS
+      - |
+        npx swagger-typescript-api --path https://engineering.toggl.com/assets/files/api-8662e9f30f4a00c93c1e5be6a160b144.json --output ./ --name api.ts --no-client --union-enums --route-types
+      # Afterwards, there is a small amount of manual fixups needed
+      - echo "Please inspect api.ts for issues"
+  #============================================================#
+  #================ Lint / Type-Check =========================#
+  #============================================================#
   lint:
     sources:
       - cli.ts
@@ -15,6 +60,9 @@ tasks:
     cmds:
       - npx tsc --noEmit
       - npx prettier --check .
+  #============================================================#
+  #================= Build / Release ==========================#
+  #============================================================#
   build:
     sources:
       - cli.ts
@@ -38,17 +86,8 @@ tasks:
       for file_path in ${copy_paths[@]}; do
         cp $file_path "dist/${file_path}"
       done
-  install:local:
-    desc: |
-      Uses `npm link` to globally share this local dev version of the package across
-      your system.
-
-      In another folder / project, you can use `npm link jtz-time-tracker-utils` to then
-      pull in this linked version.
-    deps: [build]
-    cmd: cd dist && npm link
-  uninstall:local: npm uninstall --global jtz-time-tracker-utils
   release:
+    deps: [lint]
     cmds:
       - task build
       - |
@@ -69,26 +108,19 @@ tasks:
           esac
         done
         npm publish
-  vendor:harvest:
+  #============================================================#
+  #=================     Running     ==========================#
+  #============================================================#
+  install:local:
     desc: |
-      Pulls updated type-definitions from the `node-harvest` package and
-      vendors them into the package.
-    dir: vendor/node-harvest
-    cmds:
-      - npx degit https://github.com/simplyspoke/node-harvest/src/models
-      - prettier --write .
-      # TODO: Fix up imports
-  vendor:toggl:
-    desc: |
-      Generates local type-definitions by converting official JSON schema from
-      toggl itself.
-    dir: vendor/toggl-official
-    cmds:
-      # Use swagger-typescript-api to convert official Swagger API schema to TS
-      - |
-        npx swagger-typescript-api --path https://engineering.toggl.com/assets/files/api-8662e9f30f4a00c93c1e5be6a160b144.json --output ./ --name api.ts --no-client --union-enums --route-types
-      # Afterwards, there is a small amount of manual fixups needed
-      - echo "Please inspect api.ts for issues"
+      Uses `npm link` to globally share this local dev version of the package across
+      your system.
+
+      In another folder / project, you can use `npm link jtz-time-tracker-utils` to then
+      pull in this linked version.
+    deps: [build]
+    cmd: cd dist && npm link
+  uninstall:local: npm uninstall --global jtz-time-tracker-utils
   local: npx --package tsx tsx ./cli.ts {{.CLI_ARGS}}
   # Example commands
   harvest:status: task local -- harvest status
