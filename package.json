@@ -1,6 +1,6 @@
 {
 	"name": "jtz-time-tracker-utils",
-	"version": "1.3.0",
+	"version": "1.4.0",
 	"description": "Various time tracker utilities, WIP",
 	"main": "cli.js",
 	"bin": {

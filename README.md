@@ -30,6 +30,7 @@ Key | Expected Value Type | Description
 --- | --- | ---
 `HARVEST_PAT_ACCOUNT_ID` | `string \| number` | The *Account ID* associated with a harvest PAT ([see section below](#harvest-authentication)).
 `HARVEST_PAT_TOKEN` | `string` | The actual *Token value* associated with a harvest PAT ([see section below](#harvest-authentication)).
+`TOGGL_API_TOKEN` | `string` | A Toggl API token ([see section below](#toggl-authentication)).
 
 ### CLI - Commands
 
@@ -43,10 +44,10 @@ All commands are prefixed with the global registered entrypoint for the applicat
 
 Platform | Command | Description
 --- | --- | ---
+`harvest` ✅ <br> `toggl` ✅ | `resume` | Resume the previously running time entry, with the start time set to right now.
+`harvest` ✅ <br> `toggl` ✅ | `stop` | Stop the currently running time entry.
+`harvest` ✅ <br> `toggl` ✅ | `status` | Display timer status / info.
 `harvest` ✅ <br> `toggl` ❌ | `rollup` | Generates a "roll-up" report, by user, client, project, and task.
-`harvest` ✅ <br> `toggl` ❌ | `resume` | Resume the previously running time entry, with the start time set to right now.
-`harvest` ✅ <br> `toggl` ❌ | `stop` | Stop the currently running time entry.
-`harvest` ✅ <br> `toggl` ❌ | `status` | Display timer status / info.
 
 > For any given command, you can use `--help` to see information about the available arguments.
 
@@ -56,10 +57,15 @@ Platform | Command | Description
 
 Harvest authentication is done with a Personal Access Token (PAT). Head over to the [Harvest Developers page](https://id.getharvest.com/developers) to configure new (or view existing) PATs for your specific account.
 
+### Toggl Authentication
+
+You can find your personal toggl API token under [your profile settings](https://track.toggl.com/profile). Scroll to the bottom of the page, look for the *API Token* section, and click the *Click to reveal* button to show the token you can copy and paste.
+
 ## Changelog / Releases
 
 Date | Release | Notes
 --- | --- | ---
+10/6/2024 | `v1.4.0` | Add toggl support! 🎉
 3/5/2024 | `v1.3.0` | Split up CLI vs non-CLI export, add new Harvest commands
 1/2/2024 | `v1.2.0` | Start exporting types, open up interfaces, build script fixups.
 9/17/2023 | `v1.1.1` | Add `status` command for Harvest
@@ -67,9 +73,9 @@ Date | Release | Notes
 
 ## Development
 
-Dev notes are a WIP.
+This project uses [`task` (aka `go-task`)](https://github.com/go-task/task) for developer task management and execution. [The `Taskfile.yml` file](./Taskfile.yml) serves as a way to organize these commands, as well as a form of documentation and easy entrypoint into getting started with the project.
 
-Most orchestration will be done with the bundled `Taskfile.yml`, instead of `package.json` scripts.
+You can use `task --list-all` to see all available `task` commands.
 
 ## About Me
 More About Me (Joshua Tzucker):
