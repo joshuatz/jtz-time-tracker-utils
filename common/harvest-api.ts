@@ -59,6 +59,19 @@ export interface RollupByClient {
 							entries: HarvestTimeEntry[];
 						};
 					};
+					tasks: {
+						[task: string]: {
+							totalHours: number;
+							entries: HarvestTimeEntry[];
+							entriesRollup: {
+								[entryTitle: string]: {
+									title: string;
+									totalHours: number;
+									entries: HarvestTimeEntry[];
+								};
+							};
+						};
+					};
 				};
 			};
 		};
@@ -206,6 +219,9 @@ export class HarvestApi extends TimeTracker<HarvestTimeEntry> {
 			const clientName = entry.client.name;
 			const clientId = entry.client.id;
 			const projectName = entry.project.name;
+			const taskId = entry.task.id;
+			const taskName = entry.task.name;
+			const entryTitle = entry.notes;
 			const entryHours = entry.hours;
 			const userId = entry.user.id;
 			const userName = entry.user.name;
@@ -241,7 +257,7 @@ export class HarvestApi extends TimeTracker<HarvestTimeEntry> {
 				// Update client-level total
 				client.totalHours += entryHours;
 
-				// Update project-level totals
+				// Upsert project-level totals
 				let project = client.projects[projectName];
 				if (project) {
 					project.totalHours += entryHours;
@@ -251,22 +267,37 @@ export class HarvestApi extends TimeTracker<HarvestTimeEntry> {
 						totalHours: entryHours,
 						entries: [entry],
 						entriesRollup: {},
+						tasks: {},
 					};
 					project = client.projects[projectName]!;
 				}
 
-				// Update entry-level (grouped by notes, as proxy for entry title) rollups
-				const entryTitle = entry.notes;
-				const entryRollup = project.entriesRollup[entryTitle];
-				if (entryRollup) {
-					entryRollup.totalHours += entryHours;
-					entryRollup.entries.push(entry);
+				// Upsert task-level rollup
+				let task = project.tasks[taskName];
+				if (task) {
+					task.totalHours += entryHours;
 				} else {
-					project.entriesRollup[entryTitle] = {
-						title: entryTitle,
+					project.tasks[taskName] = {
 						totalHours: entryHours,
 						entries: [entry],
+						entriesRollup: {},
 					};
+					task = project.tasks[taskName]!;
+				}
+
+				// Update entry-level (grouped by notes, as proxy for entry title) rollups
+				for (const entriesRollup of [task.entriesRollup, project.entriesRollup]) {
+					const entryRollup = entriesRollup[entryTitle];
+					if (entryRollup) {
+						entryRollup.totalHours += entryHours;
+						entryRollup.entries.push(entry);
+					} else {
+						entriesRollup[entryTitle] = {
+							title: entryTitle,
+							totalHours: entryHours,
+							entries: [entry],
+						};
+					}
 				}
 			}
 		}

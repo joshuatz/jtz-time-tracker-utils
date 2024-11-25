@@ -26,26 +26,32 @@ export const renderHeading = (headingText = 'NEW SECTION') => {
 const roundHours = (hours: number) => hours.toFixed(2);
 
 export const clientRollupToTables = (rollup: RollupByClient) => {
-	// Create table of `client | project | hours`
-	const conciseSummary: Array<{ project: string; client: string; hours: number }> = [];
 	// Create table of `client | project | task | hours`
-	const granularSummary: Array<{ project: string; client: string; task: string; hours: number }> = [];
+	const conciseSummary: Array<{ client: string; project: string; task: string; hours: number }> = [];
+	// Create table of `client | project | task | hours`
+	const granularSummary: Array<{ project: string; client: string; task: string; title: string; hours: number }> = [];
 
 	for (const client of Object.values(rollup.clients)) {
 		for (const projectName in client.projects) {
 			const project = client.projects[projectName]!;
-			conciseSummary.push({
-				client: client.clientName,
-				project: projectName,
-				hours: project.totalHours,
-			});
-			for (const entry of Object.values(project.entriesRollup)) {
-				granularSummary.push({
+			for (const taskName in project.tasks) {
+				const task = project.tasks[taskName]!;
+				conciseSummary.push({
 					client: client.clientName,
 					project: projectName,
-					task: entry.title,
-					hours: entry.totalHours,
+					task: taskName,
+					hours: task.totalHours,
 				});
+
+				for (const entry of Object.values(task.entriesRollup)) {
+					granularSummary.push({
+						client: client.clientName,
+						project: projectName,
+						task: taskName,
+						title: entry.title,
+						hours: entry.totalHours,
+					});
+				}
 			}
 		}
 	}
@@ -229,12 +235,13 @@ const getSubcommandsForPlatform = (platform: Platform) => {
 				console.log(JSON.stringify(rollup));
 				return;
 			}
-			const mdArr = [['name', 'project_id', 'task_id', 'is_active']] as string[][];
+			const mdArr = [['project_name', 'project_id', 'task_name', 'task_id', 'is_active']] as string[][];
 			for (const taskAssignment of rollup.all) {
 				mdArr.push(
 					[
 						taskAssignment.project.name,
 						taskAssignment.project.id,
+						taskAssignment.task.name,
 						taskAssignment.task_id,
 						taskAssignment.is_active,
 					].map((e) => e + ''),

@@ -65,6 +65,7 @@ You can find your personal toggl API token under [your profile settings](https:/
 
 Date | Release | Notes
 --- | --- | ---
+11/24/2024 | `v1.5.0` | Add task rollup for Harvest
 10/6/2024 | `v1.4.0` | Add toggl support! 🎉
 3/5/2024 | `v1.3.0` | Split up CLI vs non-CLI export, add new Harvest commands
 1/2/2024 | `v1.2.0` | Start exporting types, open up interfaces, build script fixups.
